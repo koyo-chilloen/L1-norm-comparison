@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Song Similarity Checker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            max-width: 1200px; /* Increased max-width for 3 columns */
+            margin: auto;
+        }
+        h1 {
+            color: #333333;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #fff;
+            font-size: 16px;
+        }
+        #results-container {
+            margin-top: 20px;
+        }
+        .similarity-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .similarity-table th,
+        .similarity-table td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        .similarity-table th {
+            background-color: #007bff;
+            color: white;
+            font-weight: bold;
+        }
+        .similarity-table tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        .similarity-table tr:hover {
+            background-color: #ddd;
+        }
+        .similarity-value {
+            font-weight: bold;
+            color: #28a745;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>L1 정규화된 advancedGenre 곡 비교</h1>
+
+        <label for="songSelect">Select a Song:</label>
+        <select id="songSelect">
+            <option value="">-- Please choose a song --</option>
+        </select>
+
+        <div id="results-container">
+            <table class="similarity-table">
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Cosine Similarity</th>
+                        <th>Euclidean Similarity</th>
+                        <th>Manhattan Similarity</th>
+                    </tr>
+                </thead>
+                <tbody id="similarity-table-body">
+                    <!-- Similarity results will be displayed here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const songData = {}; // To store song titles and their vectors
+
+        // Function to parse CSV data
+        function parseCSV(csv) {
+            const lines = csv.trim().split(/\r?\n/); // Handle both \r\n and \n
+            // Skip header line
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim(); // Trim each line
+                if (!line) continue; // Skip empty lines
+
+                // Use regex to correctly split title and vector string, handling commas within quotes
+                const match = line.match(/^(.*?),(.*)$/);
+                if (match && match.length === 3) {
+                    const title = match[1].trim();
+                    let vectorStr = match[2].trim();
+                    
+                    // Remove surrounding quotes if present
+                    if (vectorStr.startsWith('"') && vectorStr.endsWith('"')) {
+                        vectorStr = vectorStr.substring(1, vectorStr.length - 1);
+                    }
+
+                    try {
+                        songData[title] = JSON.parse(vectorStr);
+                    } catch (e) {
+                        console.error("Error parsing vector for song:", title, e, "Original vector string:", vectorStr);
+                    }
+                } else {
+                    console.error("Line did not match expected CSV format:", line);
+                }
+            }
+        }
+
+        // Fetch CSV data and populate dropdown
+        fetch('song_data_advanedGenre_normalized.csv')
+            .then(response => response.text())
+            .then(csvText => {
+                parseCSV(csvText);
+                const songSelect = document.getElementById('songSelect');
+                
+                const sortedTitles = Object.keys(songData).sort(); // Sort titles alphabetically
+
+                sortedTitles.forEach(title => {
+                    const option = document.createElement('option');
+                    option.value = title;
+                    option.textContent = title;
+                    songSelect.appendChild(option);
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching CSV:', error);
+                document.getElementById('results').innerHTML = '<p style="color: red;">Error loading song data. Please ensure the CSV file path is correct and accessible.</p>';
+            });
+
+        // --- Similarity Calculation Functions (JavaScript equivalent of Python's vector_similarity) ---
+
+        function dotProduct(vec1, vec2) {
+            return vec1.reduce((sum, val, i) => sum + val * vec2[i], 0);
+        }
+
+        function magnitude(vec) {
+            return Math.sqrt(vec.reduce((sum, val) => sum + val * val, 0));
+        }
+
+        function euclideanDistance(vec1, vec2) {
+            return Math.sqrt(vec1.reduce((sum, val, i) => sum + Math.pow(val - vec2[i], 2), 0));
+        }
+
+        function manhattanDistance(vec1, vec2) {
+            return vec1.reduce((sum, val, i) => sum + Math.abs(val - vec2[i]), 0);
+        }
+
+        function vectorSimilarity(x, y) {
+            // Cosine Similarity
+            const cos_sim = dotProduct(x, y) / (magnitude(x) * magnitude(y));
+
+            // Euclidean Distance and Similarity
+            const euclidean_dist = euclideanDistance(x, y);
+            const euclidean_sim = 1 / (1 + euclidean_dist);
+
+            // Manhattan Distance and Similarity
+            const manhattan_dist = manhattanDistance(x, y);
+            const manhattan_sim = 1 / (1 + manhattan_dist);
+
+            return {
+                cosine_similarity: cos_sim,
+                euclidean_similarity: euclidean_sim,
+                manhattan_similarity: manhattan_sim
+            };
+        }
+
+        // --- Event Listener for Dropdown Change ---
+
+        document.getElementById('songSelect').addEventListener('change', function() {
+            const selectedSongTitle = this.value;
+            const tableBody = document.getElementById('similarity-table-body');
+            tableBody.innerHTML = ''; // Clear previous results
+
+            if (!selectedSongTitle) {
+                return; // No song selected
+            }
+
+            const selectedVector = songData[selectedSongTitle];
+            if (!selectedVector) {
+                tableBody.innerHTML = `<tr><td colspan="4" style="color: red;">Vector data not found for "${selectedSongTitle}".</td></tr>`;
+                return;
+            }
+
+            const allSimilarities = [];
+
+            for (const otherSongTitle in songData) {
+                if (otherSongTitle === selectedSongTitle) {
+                    continue; // Skip comparing with itself
+                }
+
+                const otherVector = songData[otherSongTitle];
+                const similarities = vectorSimilarity(selectedVector, otherVector);
+                allSimilarities.push({
+                    title: otherSongTitle,
+                    cosine: similarities.cosine_similarity,
+                    euclidean: similarities.euclidean_similarity,
+                    manhattan: similarities.manhattan_similarity
+                });
+            }
+
+            // Sort each type of similarity independently
+            const cosineSorted = [...allSimilarities].sort((a, b) => b.cosine - a.cosine);
+            const euclideanSorted = [...allSimilarities].sort((a, b) => b.euclidean - a.euclidean);
+            const manhattanSorted = [...allSimilarities].sort((a, b) => b.manhattan - a.manhattan);
+
+            // Determine the maximum number of rows needed
+            const maxRows = Math.max(cosineSorted.length, euclideanSorted.length, manhattanSorted.length);
+
+            for (let i = 0; i < maxRows; i++) {
+                let rowHtml = `<tr>`;
+                rowHtml += `<td>${i + 1}</td>`; // Rank
+
+                // Cosine Column
+                if (cosineSorted[i]) {
+                    rowHtml += `<td><strong>${cosineSorted[i].title}</strong><br>Similarity: <span class="similarity-value">${(cosineSorted[i].cosine * 100).toFixed(2)}%</span></td>`;
+                } else {
+                    rowHtml += `<td></td>`;
+                }
+
+                // Euclidean Column
+                if (euclideanSorted[i]) {
+                    rowHtml += `<td><strong>${euclideanSorted[i].title}</strong><br>Similarity: <span class="similarity-value">${(euclideanSorted[i].euclidean * 100).toFixed(2)}%</span></td>`;
+                } else {
+                    rowHtml += `<td></td>`;
+                }
+
+                // Manhattan Column
+                if (manhattanSorted[i]) {
+                    rowHtml += `<td><strong>${manhattanSorted[i].title}</strong><br>Similarity: <span class="similarity-value">${(manhattanSorted[i].manhattan * 100).toFixed(2)}%</span></td>`;
+                } else {
+                    rowHtml += `<td></td>`;
+                }
+
+                rowHtml += `</tr>`;
+                tableBody.innerHTML += rowHtml;
+            }
+        });
+    </script>
+</body>
+</html>

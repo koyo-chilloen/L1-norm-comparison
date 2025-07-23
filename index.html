@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Song Analysis Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            max-width: 1200px;
+            margin: auto;
+        }
+        h1 {
+            color: #0056b3;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+        .tab-button {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: 1px solid #ddd;
+            border-bottom: none;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+            background-color: #f0f0f0;
+            margin-right: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        .tab-button.active {
+            background-color: #fff;
+            border-color: #ddd;
+            border-bottom: 1px solid #fff;
+            color: #0056b3;
+        }
+        .tab-content {
+            display: none;
+            padding: 20px 0;
+        }
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Styles for Similarity Checker */
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #fff;
+            font-size: 16px;
+        }
+        #results-container {
+            margin-top: 20px;
+        }
+        .similarity-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .similarity-table th,
+        .similarity-table td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        .similarity-table th {
+            background-color: #007bff;
+            color: white;
+            font-weight: bold;
+        }
+        .similarity-table tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        .similarity-table tr:hover {
+            background-color: #ddd;
+        }
+        .similarity-value {
+            font-weight: bold;
+            color: #28a745;
+        }
+
+        /* Styles for Song List */
+        .song-list-ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 0 auto;
+            max-width: 600px;
+        }
+        .song-list-ul li {
+            background-color: #fff;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .song-list-ul a {
+            display: block;
+            padding: 15px 20px;
+            text-decoration: none;
+            color: #333333; /* Specific text color */
+            transition: background-color 0.3s;
+        }
+        .song-list-ul a:hover {
+            background-color: #e9ecef;
+        }
+
+
+        /* Styles for Vector Comparison */
+        .selection-group {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            gap: 20px;
+        }
+        .selection-group div {
+            flex: 1;
+        }
+        #chart-container {
+            margin-top: 30px;
+            border: 1px solid #eee;
+            padding: 15px;
+            background-color: #fdfdfd;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>L1 비교 분석</h1>
+
+        <div class="tabs">
+            <button class="tab-button active" onclick="openTab(event, 'similarityChecker')">Similarity Checker</button>
+            <button class="tab-button" onclick="openTab(event, 'vectorComparison')">Vector Comparison</button>
+            <button class="tab-button" onclick="openTab(event, 'songList')">Song List</button>
+        </div>
+
+        <div id="similarityChecker" class="tab-content active">
+            <h2>L1 정규화된 advancedGenre 유사도 비교</h2>
+            <label for="songSelect">Select a Song:</label>
+            <select id="songSelect">
+                <option value="">-- Please choose a song --</option>
+            </select>
+
+            <div id="results-container">
+                <table class="similarity-table">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Cosine Similarity</th>
+                            <th>Euclidean Similarity</th>
+                            <th>Manhattan Similarity</th>
+                        </tr>
+                    </thead>
+                    <tbody id="similarity-table-body">
+                        <!-- Similarity results will be displayed here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="vectorComparison" class="tab-content">
+            <h2>두 곡 비교 그래프</h2>
+            <div class="selection-group">
+                <div>
+                    <label for="songSelect1">Select Song 1:</label>
+                    <select id="songSelect1">
+                        <option value="">-- Please choose a song --</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="songSelect2">Select Song 2:</label>
+                    <select id="songSelect2">
+                        <option value="">-- Please choose a song --</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="chart-container">
+                <canvas id="vectorChart"></canvas>
+            </div>
+        </div>
+
+        <div id="songList" class="tab-content">
+            <h2>단일 곡 그래프</h2>
+            <label for="singleSongSelect">Select a Song:</label>
+            <select id="singleSongSelect">
+                <option value="">-- Please choose a song --</option>
+            </select>
+            <div id="single-song-chart-container">
+                <canvas id="singleSongVectorChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const songData = {};
+        let vectorChart = null;
+        let singleSongVectorChart = null; // New Chart.js instance for single song view
+
+        function parseCSV(csv) {
+            const lines = csv.trim().split(/\r?\n/); 
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+                const match = line.match(/^(.*?),(.*)$/);
+                if (match && match.length === 3) {
+                    const title = match[1].trim();
+                    let vectorStr = match[2].trim();
+                    if (vectorStr.startsWith('"') && vectorStr.endsWith('"')) {
+                        vectorStr = vectorStr.substring(1, vectorStr.length - 1);
+                    }
+                    try {
+                        songData[title] = JSON.parse(vectorStr);
+                    }
+                    catch (e) {
+                        console.error("Error parsing vector for song:", title, e, "Original vector string:", vectorStr);
+                    }
+                }
+                else {
+                    console.error("Line did not match expected CSV format:", line);
+                }
+            }
+        }
+
+        // Load CSV data once for all tabs
+        fetch('song_data_advanedGenre_normalized.csv')
+            .then(response => response.text())
+            .then(csvText => {
+                parseCSV(csvText);
+                const sortedTitles = Object.keys(songData).sort();
+
+                // Populate Similarity Checker dropdown
+                const songSelect = document.getElementById('songSelect');
+                sortedTitles.forEach(title => {
+                    const option = document.createElement('option');
+                    option.value = title;
+                    option.textContent = title;
+                    songSelect.appendChild(option);
+                });
+
+                // Populate Vector Comparison dropdowns
+                const songSelect1 = document.getElementById('songSelect1');
+                const songSelect2 = document.getElementById('songSelect2');
+                sortedTitles.forEach(title => {
+                    const option1 = document.createElement('option');
+                    option1.value = title;
+                    option1.textContent = title;
+                    songSelect1.appendChild(option1);
+
+                    const option2 = document.createElement('option');
+                    option2.value = title;
+                    option2.textContent = title;
+                    songSelect2.appendChild(option2);
+                });
+
+                // Populate Single Song Vector Visualization dropdown
+                const singleSongSelect = document.getElementById('singleSongSelect');
+                sortedTitles.forEach(title => {
+                    const option = document.createElement('option');
+                    option.value = title;
+                    option.textContent = title;
+                    singleSongSelect.appendChild(option);
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching CSV:', error);
+                document.querySelector('.container').innerHTML = '<p style="color: red;">Error loading song data. Please ensure the CSV file path is correct and accessible.</p>';
+            });
+
+        // --- Similarity Calculation Functions (from song_similarity_checker.html) ---
+        function dotProduct(vec1, vec2) {
+            return vec1.reduce((sum, val, i) => sum + val * vec2[i], 0);
+        }
+
+        function magnitude(vec) {
+            return Math.sqrt(vec.reduce((sum, val) => sum + val * val, 0));
+        }
+
+        function euclideanDistance(vec1, vec2) {
+            return Math.sqrt(vec1.reduce((sum, val, i) => sum + Math.pow(val - vec2[i], 2), 0));
+        }
+
+        function manhattanDistance(vec1, vec2) {
+            return vec1.reduce((sum, val, i) => sum + Math.abs(val - vec2[i]), 0);
+        }
+
+        function vectorSimilarity(x, y) {
+            const cos_sim = dotProduct(x, y) / (magnitude(x) * magnitude(y));
+            const euclidean_dist = euclideanDistance(x, y);
+            const euclidean_sim = 1 / (1 + euclidean_dist);
+            const manhattan_dist = manhattanDistance(x, y);
+            const manhattan_sim = 1 / (1 + manhattan_dist);
+            return {
+                cosine_similarity: cos_sim,
+                euclidean_similarity: euclidean_sim,
+                manhattan_similarity: manhattan_sim
+            };
+        }
+
+        // --- Event Listener for Similarity Checker Dropdown ---
+        document.getElementById('songSelect').addEventListener('change', function() {
+            const selectedSongTitle = this.value;
+            const tableBody = document.getElementById('similarity-table-body');
+            tableBody.innerHTML = '';
+
+            if (!selectedSongTitle) {
+                return;
+            }
+
+            const selectedVector = songData[selectedSongTitle];
+            if (!selectedVector) {
+                tableBody.innerHTML = `<tr><td colspan="4" style="color: red;">Vector data not found for "${selectedSongTitle}".</td></tr>`;
+                return;
+            }
+
+            const allSimilarities = [];
+            for (const otherSongTitle in songData) {
+                if (otherSongTitle === selectedSongTitle) {
+                    continue;
+                }
+                const otherVector = songData[otherSongTitle];
+                const similarities = vectorSimilarity(selectedVector, otherVector);
+                allSimilarities.push({
+                    title: otherSongTitle,
+                    cosine: similarities.cosine_similarity,
+                    euclidean: similarities.euclidean_similarity,
+                    manhattan: similarities.manhattan_similarity
+                });
+            }
+
+            const cosineSorted = [...allSimilarities].sort((a, b) => b.cosine - a.cosine);
+            const euclideanSorted = [...allSimilarities].sort((a, b) => b.euclidean - a.euclidean);
+            const manhattanSorted = [...allSimilarities].sort((a, b) => b.manhattan - a.manhattan);
+
+            const maxRows = Math.max(cosineSorted.length, euclideanSorted.length, manhattanSorted.length);
+
+            for (let i = 0; i < maxRows; i++) {
+                let rowHtml = `<tr>`;
+                rowHtml += `<td>${i + 1}</td>`;
+
+                if (cosineSorted[i]) {
+                    rowHtml += `<td><strong>${cosineSorted[i].title}</strong><br>Similarity: <span class="similarity-value">${(cosineSorted[i].cosine * 100).toFixed(2)}%</span></td>`;
+                } else {
+                    rowHtml += `<td></td>`;
+                }
+
+                if (euclideanSorted[i]) {
+                    rowHtml += `<td><strong>${euclideanSorted[i].title}</strong><br>Similarity: <span class="similarity-value">${(euclideanSorted[i].euclidean * 100).toFixed(2)}%</span></td>`;
+                } else {
+                    rowHtml += `<td></td>`;
+                }
+
+                if (manhattanSorted[i]) {
+                    rowHtml += `<td><strong>${manhattanSorted[i].title}</strong><br>Similarity: <span class="similarity-value">${(manhattanSorted[i].manhattan * 100).toFixed(2)}%</span></td>`;
+                } else {
+                    rowHtml += `<td></td>`;
+                }
+
+                rowHtml += `</tr>`;
+                tableBody.innerHTML += rowHtml;
+            }
+        });
+
+        // --- Function to draw the bar chart (from vector_comparison.html) ---
+        function drawChart() {
+            const song1Title = document.getElementById('songSelect1').value;
+            const song2Title = document.getElementById('songSelect2').value;
+
+            if (!song1Title || !song2Title) {
+                if (vectorChart) {
+                    vectorChart.destroy();
+                    vectorChart = null;
+                }
+                return;
+            }
+
+            const vector1 = songData[song1Title];
+            const vector2 = songData[song2Title];
+
+            if (!vector1 || !vector2) {
+                console.error("Vector data not found for selected songs.");
+                return;
+            }
+
+            const labels = [
+                "afro", "ambient", "arab", "asian", "blues", "childrenJingle", "classical", 
+                "electronicDance", "folkCountry", "funkSoul", "indian", "jazz", "latin", 
+                "metal", "pop", "rapHipHop", "reggae", "rnb", "rock", "singerSongwriters", 
+                "sound", "soundtrack", "spokenWord"
+            ];
+
+            const ctx = document.getElementById('vectorChart').getContext('2d');
+
+            if (vectorChart) {
+                vectorChart.destroy();
+            }
+
+            vectorChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: song1Title,
+                            data: vector1,
+                            backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: song2Title,
+                            data: vector2,
+                            backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Normalized Value'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Vector Dimension'
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `Comparison of ${song1Title} vs ${song2Title}`
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- Function to draw a single song's vector chart ---
+        function drawSingleSongChart() {
+            const selectedSongTitle = document.getElementById('singleSongSelect').value;
+
+            if (!selectedSongTitle) {
+                if (singleSongVectorChart) {
+                    singleSongVectorChart.destroy();
+                    singleSongVectorChart = null;
+                }
+                return;
+            }
+
+            const vector = songData[selectedSongTitle];
+
+            if (!vector) {
+                console.error("Vector data not found for selected song:", selectedSongTitle);
+                return;
+            }
+
+            const labels = [
+                "afro", "ambient", "arab", "asian", "blues", "childrenJingle", "classical", 
+                "electronicDance", "folkCountry", "funkSoul", "indian", "jazz", "latin", 
+                "metal", "pop", "rapHipHop", "reggae", "rnb", "rock", "singerSongwriters", 
+                "sound", "soundtrack", "spokenWord"
+            ];
+
+            const ctx = document.getElementById('singleSongVectorChart').getContext('2d');
+
+            if (singleSongVectorChart) {
+                singleSongVectorChart.destroy();
+            }
+
+            singleSongVectorChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: selectedSongTitle,
+                            data: vector,
+                            backgroundColor: 'rgba(153, 102, 255, 0.6)',
+                            borderColor: 'rgba(153, 102, 255, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Normalized Value'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Vector Dimension'
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `Vector for ${selectedSongTitle}`
+                        }
+                    }
+                }
+            });
+        }
+
+        // Event listeners for dropdown changes
+        document.getElementById('songSelect1').addEventListener('change', drawChart);
+        document.getElementById('songSelect2').addEventListener('change', drawChart);
+        document.getElementById('singleSongSelect').addEventListener('change', drawSingleSongChart); // New event listener
+
+        // Tab functionality
+        function openTab(evt, tabName) {
+            var i, tabcontent, tabbuttons;
+            tabcontent = document.getElementsByClassName("tab-content");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+            tabbuttons = document.getElementsByClassName("tab-button");
+            for (i = 0; i < tabbuttons.length; i++) {
+                tabbuttons[i].className = tabbuttons[i].className.replace(" active", "");
+            }
+            document.getElementById(tabName).style.display = "block";
+            evt.currentTarget.className += " active";
+
+            // Re-render chart if switching to vector comparison tab and songs are selected
+            if (tabName === 'vectorComparison' && document.getElementById('songSelect1').value && document.getElementById('songSelect2').value) {
+                drawChart();
+            } else if (tabName === 'songList' && document.getElementById('singleSongSelect').value) { // New condition for songList tab
+                drawSingleSongChart();
+            }
+        }
+
+        // Set default tab on load
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelector('.tab-button').click();
+        });
+    </script>
+</body>
+</html>

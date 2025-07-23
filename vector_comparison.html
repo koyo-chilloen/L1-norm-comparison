@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Song Vector Comparison</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            max-width: 1200px;
+            margin: auto;
+        }
+        h1 {
+            color: #333333;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .selection-group {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            gap: 20px;
+        }
+        .selection-group div {
+            flex: 1;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #fff;
+            font-size: 16px;
+        }
+        #chart-container {
+            margin-top: 30px;
+            border: 1px solid #eee;
+            padding: 15px;
+            background-color: #fdfdfd;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Song Vector Comparison</h1>
+
+        <div class="selection-group">
+            <div>
+                <label for="songSelect1">Select Song 1:</label>
+                <select id="songSelect1">
+                    <option value="">-- Please choose a song --</option>
+                </select>
+            </div>
+            <div>
+                <label for="songSelect2">Select Song 2:</label>
+                <select id="songSelect2">
+                    <option value="">-- Please choose a song --</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="chart-container">
+            <canvas id="vectorChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const songData = {}; // To store song titles and their vectors
+        let vectorChart = null; // To hold the Chart.js instance
+
+        // Function to parse CSV data (reused from previous task)
+        function parseCSV(csv) {
+            const lines = csv.trim().split(/\r?\n/); // Handle both \r\n and \n
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim(); // Trim each line
+                if (!line) continue; // Skip empty lines
+
+                const match = line.match(/^(.*?),(.*)$/);
+                if (match && match.length === 3) {
+                    const title = match[1].trim();
+                    let vectorStr = match[2].trim();
+                    
+                    if (vectorStr.startsWith('"') && vectorStr.endsWith('"')) {
+                        vectorStr = vectorStr.substring(1, vectorStr.length - 1);
+                    }
+
+                    try {
+                        songData[title] = JSON.parse(vectorStr);
+                    } catch (e) {
+                        console.error("Error parsing vector for song:", title, e, "Original vector string:", vectorStr);
+                    }
+                } else {
+                    console.error("Line did not match expected CSV format:", line);
+                }
+            }
+        }
+
+        // Fetch CSV data and populate dropdowns
+        fetch('song_data_advanedGenre_normalized.csv')
+            .then(response => response.text())
+            .then(csvText => {
+                parseCSV(csvText);
+                const songSelect1 = document.getElementById('songSelect1');
+                const songSelect2 = document.getElementById('songSelect2');
+                
+                const sortedTitles = Object.keys(songData).sort(); // Sort titles alphabetically
+
+                sortedTitles.forEach(title => {
+                    const option1 = document.createElement('option');
+                    option1.value = title;
+                    option1.textContent = title;
+                    songSelect1.appendChild(option1);
+
+                    const option2 = document.createElement('option');
+                    option2.value = title;
+                    option2.textContent = title;
+                    songSelect2.appendChild(option2);
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching CSV:', error);
+                document.getElementById('chart-container').innerHTML = '<p style="color: red;">Error loading song data. Please ensure the CSV file path is correct and accessible.</p>';
+            });
+
+        // Function to draw the bar chart
+        function drawChart() {
+            const song1Title = document.getElementById('songSelect1').value;
+            const song2Title = document.getElementById('songSelect2').value;
+
+            if (!song1Title || !song2Title) {
+                if (vectorChart) {
+                    vectorChart.destroy(); // Destroy previous chart if any
+                    vectorChart = null;
+                }
+                return; // Need both songs selected
+            }
+
+            const vector1 = songData[song1Title];
+            const vector2 = songData[song2Title];
+
+            if (!vector1 || !vector2) {
+                console.error("Vector data not found for selected songs.");
+                return;
+            }
+
+            const labels = [
+                "afro", "ambient", "arab", "asian", "blues", "childrenJingle", "classical", 
+                "electronicDance", "folkCountry", "funkSoul", "indian", "jazz", "latin", 
+                "metal", "pop", "rapHipHop", "reggae", "rnb", "rock", "singerSongwriters", 
+                "sound", "soundtrack", "spokenWord"
+            ];
+
+            const ctx = document.getElementById('vectorChart').getContext('2d');
+
+            if (vectorChart) {
+                vectorChart.destroy(); // Destroy previous chart before creating a new one
+            }
+
+            vectorChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: song1Title,
+                            data: vector1,
+                            backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: song2Title,
+                            data: vector2,
+                            backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Normalized Value'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Vector Dimension'
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `Comparison of ${song1Title} vs ${song2Title}`
+                        }
+                    }
+                }
+            });
+        }
+
+        // Event listeners for dropdown changes
+        document.getElementById('songSelect1').addEventListener('change', drawChart);
+        document.getElementById('songSelect2').addEventListener('change', drawChart);
+    </script>
+</body>
+</html>
