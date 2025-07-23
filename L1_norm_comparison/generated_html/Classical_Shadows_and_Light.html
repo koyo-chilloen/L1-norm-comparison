@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Vector Visualization</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h1 style="font-family:Arial; text-align: center;">Classical Shadows and Light</h1>
+    <canvas id="vectorChart" width="400" height="200"></canvas>
+    <script>
+        /**
+         * 주어진 배열을 L1 Norm으로 정규화합니다.
+         * @param {number[]} array - 정규화할 숫자 배열
+         * @returns {number[]} - L1 Norm 정규화된 새 배열
+         */
+        function l1Normalize(array) {
+            // 1. 배열 모든 요소의 절댓값의 합(L1 Norm)을 계산합니다.
+            const l1Norm = array.reduce((accumulator, value) => accumulator + Math.abs(value), 0);
+
+            // 2. L1 Norm이 0이면 0으로 나누는 오류를 방지하기 위해 원본 배열을 반환합니다.
+            if (l1Norm === 0) {
+                return array;
+            }
+
+            // 3. 각 요소를 L1 Norm으로 나누어 새로운 배열을 만듭니다.
+            const normalizedArray = array.map(value => value / l1Norm);
+
+            return normalizedArray;
+        }
+
+        const v = [0.02333425246895506, 0.2691246603543942, 0.005005163471930875, 0.002220377057360915, 0.0037273568763899114, 0.01146198812728891, 0.03026200467362427, 0.024302958260075405, 0.005321533325164078, 0.0018336602728455686, 0.0019830362065337026, 0.021704916269160233, 0.0027792033014030983, 0.00065067469908032, 0.013007244704147944, 0.002380386281471986, 0.0012671552047742386, 0.004377465032470914, 0.0069216824888796486, 0.007315796388026614, 0.02286140744287807, 0.34076430247380185, 0.002395185646421921]
+        const u = l1Normalize(v);
+        const sumOfAbs = u.reduce((acc, value) => acc + Math.abs(value), 0);
+        console.log(sumOfAbs);
+        const keywords = [
+            "afro", "ambient", "arab", "asian", "blues", "childrenJingle", "classical", 
+            "electronicDance", "folkCountry", "funkSoul", "indian", "jazz", "latin", 
+            "metal", "pop", "rapHipHop", "reggae", "rnb", "rock", "singerSongwriters", 
+            "sound", "soundtrack", "spokenWord"
+        ];
+
+        const ctx = document.getElementById('vectorChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: keywords,
+                datasets: [{
+                    label: 'Vector v',
+                    data: v,
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 1
+                }, {
+                    label: 'Vector u (Normalized v)',
+                    data: u,
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        min: 0,
+                        max: 1
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
